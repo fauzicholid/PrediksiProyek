@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Berkas SHAP</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --paper:        #eae6da;
+    --paper-raised: #f4f1e7;
+    --paper-sunken: #ddd8c8;
+    --ink:          #201d16;
+    --ink-soft:     #58513f;
+    --ink-faint:    #8c8471;
+    --rule:         #c7bfa8;
+    --rule-strong:  #a89f85;
+    --stamp:        #2b4570;
+    --stamp-soft:   #dde3ea;
+    --flag:         #a13d2b;
+    --flag-soft:    #f1e0da;
+    --good:         #3d6b3d;
+    --good-soft:    #dfe8dc;
+    --shadow: 0 1px 0 rgba(32,29,22,0.06), 0 10px 26px -16px rgba(32,29,22,0.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --paper:        #171509;
+      --paper-raised: #201d13;
+      --paper-sunken: #100f09;
+      --ink:          #ece7d8;
+      --ink-soft:     #bcb49b;
+      --ink-faint:    #8c8471;
+      --rule:         #3a3625;
+      --rule-strong:  #4c4730;
+      --stamp:        #7fa0cc;
+      --stamp-soft:   #232e3d;
+      --flag:         #dd8f78;
+      --flag-soft:    #3a2620;
+      --good:         #8fbf8a;
+      --good-soft:    #1f2c1e;
+      --shadow: 0 1px 0 rgba(0,0,0,0.4), 0 10px 26px -16px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --paper:        #171509;
+    --paper-raised: #201d13;
+    --paper-sunken: #100f09;
+    --ink:          #ece7d8;
+    --ink-soft:     #bcb49b;
+    --ink-faint:    #8c8471;
+    --rule:         #3a3625;
+    --rule-strong:  #4c4730;
+    --stamp:        #7fa0cc;
+    --stamp-soft:   #232e3d;
+    --flag:         #dd8f78;
+    --flag-soft:    #3a2620;
+    --good:         #8fbf8a;
+    --good-soft:    #1f2c1e;
+    --shadow: 0 1px 0 rgba(0,0,0,0.4), 0 10px 26px -16px rgba(0,0,0,0.6);
+  }
+
+  *{ box-sizing: border-box; }
+  body{
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap{
+    max-width: 760px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 100px;
+  }
+  h1,h2,h3{
+    font-family: "Zilla Slab", Georgia, serif;
+    text-wrap: balance;
+    color: var(--ink);
+    margin: 0;
+  }
+  .mono{
+    font-family: "Courier Prime", ui-monospace, "SF Mono", monospace;
+  }
+  .tag{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "Courier Prime", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 3px 9px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 3px;
+    background: var(--paper-raised);
+  }
+
+  /* ---------- Cover / intake ---------- */
+  .cover{
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-raised);
+    border-radius: 4px;
+    padding: 28px 26px 26px;
+    box-shadow: var(--shadow);
+    margin-bottom: 40px;
+    position: relative;
+  }
+  .cover::before{
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 1px dashed var(--rule);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .case-no{
+    font-family: "Courier Prime", ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    margin-bottom: 14px;
+  }
+  h1.title{
+    font-size: clamp(28px, 5.2vw, 42px);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 14px;
+  }
+  p.dek{
+    font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 0 0 22px;
+  }
+  .intake-grid{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .intake-item{
+    background: var(--paper-raised);
+    padding: 12px 12px 14px;
+  }
+  .intake-item .k{
+    font-family: "Courier Prime", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  .intake-item .v{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.35;
+  }
+  .intake-item .v .mono{ font-weight: 400; font-size: 13px; color: var(--ink-soft); }
+
+  /* ---------- Prose sections ---------- */
+  section.chapter{ margin-bottom: 46px; }
+  section.chapter > h2{
+    font-size: 23px;
+    margin-bottom: 12px;
+  }
+  p{ margin: 0 0 15px; max-width: 64ch; }
+  section.chapter p:last-child{ margin-bottom: 0; }
+  ul.plain{ margin: 0 0 15px; padding-left: 20px; max-width: 64ch; }
+  ul.plain li{ margin-bottom: 6px; }
+
+  .lede{
+    font-family: "Courier Prime", ui-monospace, monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+
+  /* ---------- Exhibit cards ---------- */
+  .exhibit{
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-raised);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    margin-bottom: 44px;
+    overflow: hidden;
+  }
+  .exhibit-head{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-sunken);
+  }
+  .exhibit-head .name{
+    font-family: "Zilla Slab", serif;
+    font-weight: 600;
+    font-size: 20px;
+  }
+  .exhibit-body{ padding: 20px 22px 22px; }
+  .exhibit-body p, .exhibit-body ul{ max-width: 60ch; }
+  .question{
+    font-family: "Zilla Slab", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink);
+    border-left: 3px solid var(--stamp);
+    padding-left: 14px;
+    margin: 0 0 18px;
+    max-width: 58ch;
+  }
+  figure{ margin: 18px 0; }
+  figure img{
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #fff;
+    border: 1px solid var(--rule-strong);
+    border-radius: 3px;
+  }
+  figcaption{
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    margin-top: 7px;
+    max-width: 60ch;
+  }
+
+  table.evidence{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 20px;
+    font-size: 14px;
+  }
+  table.evidence th, table.evidence td{
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  table.evidence th:first-child, table.evidence td:first-child{
+    text-align: left; font-variant-numeric: normal;
+  }
+  table.evidence thead th{
+    font-family: "Courier Prime", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule-strong);
+    font-weight: 400;
+  }
+  table.evidence td.win{ color: var(--stamp); font-weight: 700; }
+  table.evidence tbody tr:last-child td{ border-bottom: none; }
+
+  .stamp-row{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 4px;
+  }
+  .stamp{
+    font-family: "Courier Prime", monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border: 2px solid var(--stamp);
+    color: var(--stamp);
+    border-radius: 3px;
+    transform: rotate(-1.5deg);
+    white-space: nowrap;
+  }
+  .stamp.tie{ border-color: var(--flag); color: var(--flag); }
+  .stamp-row .stamp-note{ font-size: 13.5px; color: var(--ink-soft); }
+
+  .verdict{
+    background: var(--stamp-soft);
+    border: 1px solid var(--stamp);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin-top: 16px;
+    max-width: 60ch;
+  }
+  .verdict.flagged{ background: var(--flag-soft); border-color: var(--flag); }
+  .verdict p{ margin: 0; }
+  .verdict .who{
+    font-family: "Courier Prime", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+
+  /* ---------- Findings / closing ---------- */
+  .findings{
+    counter-reset: finding;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 18px 0 20px;
+    max-width: 64ch;
+  }
+  .finding{
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+  .finding .no{
+    counter-increment: finding;
+    font-family: "Courier Prime", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--stamp);
+  }
+  .finding .no::before{ content: counter(finding, decimal-leading-zero); }
+  .finding h3{ font-size: 16px; margin-bottom: 4px; }
+  .finding p{ font-size: 14.5px; margin: 0; max-width: 56ch; }
+
+  .closing-line{
+    font-family: "Zilla Slab", serif;
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--ink);
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    margin-top: 6px;
+    max-width: 58ch;
+  }
+
+  footer{
+    border-top: 1px dashed var(--rule);
+    padding-top: 18px;
+    margin-top: 46px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  footer code{
+    font-family: "Courier Prime", monospace;
+    background: var(--paper-sunken);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  footer ul{ margin: 8px 0 0; padding-left: 18px; }
+  footer li{ margin-bottom: 4px; }
+
+  @media (max-width: 560px){
+    .intake-grid{ grid-template-columns: repeat(2, 1fr); }
+    .finding{ grid-template-columns: 28px 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="cover">
+    <div class="case-no">BERKAS NO. XAI&ndash;2026&ndash;03 &middot; STATUS: DITUTUP</div>
+    <h1 class="title">Tiga Dataset Diinterogasi, Satu Pertanyaan Dijawab</h1>
+    <p class="dek">Sebuah dashboard prediksi keterlambatan proyek IT dibangun di atas Random Forest dan SHAP. Lalu, sebelum dipercaya, ia diuji: kapan pendekatan time series benar-benar berlaku, dan seberapa sering faktor yang &ldquo;kelihatannya penting&rdquo; ternyata tidak.</p>
+
+    <div class="intake-grid">
+      <div class="intake-item">
+        <div class="k">Dashboard inti</div>
+        <div class="v">Random Forest + SHAP<br><span class="mono">2 sumber data</span></div>
+      </div>
+      <div class="intake-item">
+        <div class="k">Exhibit A &middot; Desharnais</div>
+        <div class="v">RF menang telak<br><span class="mono">R&sup2; 0,28 vs &minus;0,26</span></div>
+      </div>
+      <div class="intake-item">
+        <div class="k">Exhibit B &middot; Eclipse</div>
+        <div class="v">Time series asli<br><span class="mono">kedua model tetap gagal</span></div>
+      </div>
+      <div class="intake-item">
+        <div class="k">Exhibit C &middot; Asana</div>
+        <div class="v">16.639 task nyata<br><span class="mono">1 dari 12 faktor relevan</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="chapter">
+    <div class="lede">Pembukaan Berkas</div>
+    <h2>Kotak Hitam yang Harus Bicara</h2>
+    <p>Manajer proyek IT tidak kekurangan prediksi. Yang mereka kekurangan adalah prediksi yang bisa dipertanggungjawabkan. Sebuah model yang bilang &ldquo;proyek ini 73% berisiko terlambat&rdquo; tanpa bisa menjawab <em>kenapa</em> hanya akan berakhir diabaikan &mdash; atau lebih buruk, dipercaya buta.</p>
+    <p>Dari situ dashboard ini dibangun: <strong>Random Forest</strong> sebagai mesin prediksi, dan <strong>SHAP (SHapley Additive exPlanations)</strong> sebagai juru bicaranya &mdash; menguraikan setiap prediksi menjadi kontribusi tiap faktor, dari level satu proyek (waterfall plot) sampai pola keseluruhan dataset (beeswarm plot).</p>
+    <p>Dashboard ini punya dua sumber data yang bisa dipilih langsung dari sidebar:</p>
+    <table class="evidence">
+      <thead><tr><th>Sumber data</th><th>Ukuran</th><th>Akurasi</th><th>ROC-AUC</th></tr></thead>
+      <tbody>
+        <tr><td>Sintetis (demo)</td><td>1.500 proyek</td><td>74,7%</td><td>0,805</td></tr>
+        <tr><td>Asana (simulasi enterprise)</td><td>16.639 task</td><td>94,7%</td><td>0,968</td></tr>
+      </tbody>
+    </table>
+    <p>Tapi angka akurasi yang tinggi bukan akhir cerita &mdash; justru awal dari tiga investigasi berikut. Karena pertanyaan yang lebih penting dari &ldquo;seberapa akurat?&rdquo; adalah: <strong>akurat karena alasan yang benar, atau kebetulan?</strong></p>
+  </section>
+
+  <section class="chapter">
+    <div class="lede">Exhibit A</div>
+    <div class="exhibit">
+      <div class="exhibit-head">
+        <span class="name">Dataset Desharnais</span>
+        <span class="tag">81 proyek &middot; 1982&ndash;1988</span>
+      </div>
+      <div class="exhibit-body">
+        <p class="question">Bisakah data proyek yang tidak berurutan diperlakukan sebagai time series &mdash; hanya karena diurutkan berdasarkan tahun?</p>
+        <p><strong>Kasus posisi:</strong> Desharnais adalah dataset klasik riset estimasi effort software &mdash; 81 proyek dari perusahaan Kanada, masing-masing independen satu sama lain. Untuk mengujinya sebagai time series, 77 proyek (setelah membuang 4 data hilang) diurutkan berdasarkan <span class="mono">YearEnd</span>, dipecah kronologis 61 train / 16 test, lalu diadu: Random Forest berbasis fitur ukuran &amp; kompleksitas proyek, melawan ARIMA univariat yang hanya melihat deret angka Effort.</p>
+
+        <table class="evidence">
+          <thead><tr><th>Metrik</th><th>Random Forest</th><th>ARIMA(0,2,2)</th></tr></thead>
+          <tbody>
+            <tr><td>MAE</td><td class="win">2.115,8</td><td>4.012,7</td></tr>
+            <tr><td>RMSE</td><td class="win">3.323,1</td><td>4.400,1</td></tr>
+            <tr><td>R&sup2;</td><td class="win">0,280</td><td>&minus;0,262</td></tr>
+          </tbody>
+        </table>
+
+        <figure>
+          <img src="exhibit_a.png" alt="Grafik garis Effort aktual vs prediksi Random Forest dan ARIMA pada 16 proyek data uji Desharnais">
+          <figcaption>Forecast ARIMA (merah) nyaris datar di sekitar rata-rata data latih &mdash; ia tak punya sinyal apa pun tentang ukuran proyek berikutnya. Random Forest (biru) mengikuti lonjakan aktual karena memanfaatkan fitur proyek secara langsung.</figcaption>
+        </figure>
+
+        <div class="stamp-row">
+          <span class="stamp">RF Menang Telak</span>
+          <span class="stamp-note">R&sup2; ARIMA negatif &mdash; lebih buruk dari sekadar menebak rata-rata.</span>
+        </div>
+        <div class="verdict">
+          <div class="who">Catatan penyidik</div>
+          <p>ARIMA tidak &ldquo;kalah&rdquo; karena modelnya buruk. Ia kalah karena diminta mencari pola temporal di tempat yang tidak punya pola temporal. Mengurutkan 77 proyek independen berdasarkan tahun tidak menciptakan autokorelasi yang bermakna &mdash; hanya menciptakan ilusi urutan.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="lede">Exhibit B</div>
+    <div class="exhibit">
+      <div class="exhibit-head">
+        <span class="name">Eclipse Platform</span>
+        <span class="tag">24.775 bug &middot; 2006&ndash;2011</span>
+      </div>
+      <div class="exhibit-body">
+        <p class="question">Kalau datanya benar-benar time series &mdash; tren dan musiman terverifikasi secara statistik, bukan diasumsikan &mdash; apakah pendekatan time series otomatis menang?</p>
+        <p><strong>Kasus posisi:</strong> jumlah bug baru per bulan pada proyek Eclipse Platform (dataset MSR 2013) adalah kebalikan dari Desharnais: satu proyek yang sama, diamati berturut-turut selama 64 bulan. Uji Augmented Dickey-Fuller mengonfirmasi non-stasioneritas di level (p=0,64) yang hilang setelah differencing (p&lt;0,001), dan dekomposisi mengungkap tren menurun plus pola musiman tahunan yang konsisten &mdash; struktur yang mustahil ada di Desharnais.</p>
+
+        <figure>
+          <img src="exhibit_b1.png" alt="Dekomposisi deret waktu jumlah bug Eclipse menjadi komponen trend, seasonal, dan residual">
+          <figcaption>Trend menurun monoton + pola musiman tahunan yang jelas berulang setiap tahun &mdash; bukti struktur temporal yang sah, sesuatu yang tidak bisa diklaim pada Exhibit A.</figcaption>
+        </figure>
+
+        <p>SARIMA(2,1,1)(1,1,0)<sub>12</sub> &mdash; dipilih otomatis lewat grid search AIC &mdash; diadu melawan Random Forest berbekal fitur lag (bulan sebelumnya, 12 bulan sebelumnya, indeks tren) pada 12 bulan holdout terakhir.</p>
+
+        <table class="evidence">
+          <thead><tr><th>Metrik</th><th>Random Forest (lag)</th><th>SARIMA</th></tr></thead>
+          <tbody>
+            <tr><td>MAE</td><td class="win">51,7</td><td>64,3</td></tr>
+            <tr><td>RMSE</td><td class="win">59,3</td><td>74,7</td></tr>
+            <tr><td>R&sup2;</td><td>&minus;1,118</td><td>&minus;2,364</td></tr>
+          </tbody>
+        </table>
+
+        <figure>
+          <img src="exhibit_b2.png" alt="Grafik aktual vs forecast Random Forest dan SARIMA pada 12 bulan data uji Eclipse">
+          <figcaption>Random Forest (biru) stabil tapi konsisten kemahalan &mdash; ia tak pernah melihat level serendah ini saat training. SARIMA (merah) mengikuti arah tren tapi berosilasi liar, dari nyaris nol sampai puncak baru.</figcaption>
+        </figure>
+
+        <div class="stamp-row">
+          <span class="stamp tie">Seri &mdash; Dua Cara Gagal</span>
+          <span class="stamp-note">R&sup2; kedua model tetap negatif, meski strukturnya nyata.</span>
+        </div>
+        <div class="verdict flagged">
+          <div class="who">Catatan penyidik</div>
+          <p>12 bulan data uji jatuh pada level bug terendah sepanjang sejarah dataset &mdash; di luar apa pun yang pernah dilihat kedua model. Random Forest bias karena pohon keputusan tak bisa mengekstrapolasi tren melewati rentang training. SARIMA overfit karena 52 bulan training cuma mencakup &sim;4,3 siklus musiman &mdash; terlalu sedikit untuk mengestimasi parameter musiman secara stabil. Time series yang sah tetap bisa gagal, hanya dengan alasan yang berbeda dari model berbasis fitur.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="lede">Exhibit C</div>
+    <div class="exhibit">
+      <div class="exhibit-head">
+        <span class="name">Simulasi Workspace Asana</span>
+        <span class="tag">16.639 task &middot; ~1.200 proyek</span>
+      </div>
+      <div class="exhibit-body">
+        <p class="question">Kalau datanya besar dan kelihatan kaya fitur &mdash; tim, peran, tag, komentar, beban kerja &mdash; apa semua faktor itu benar-benar berpengaruh?</p>
+        <p><strong>Kasus posisi:</strong> untuk menguji dashboard pada skala yang lebih realistis, delapan tabel relasional (task, proyek, tim, user, tag, komentar) dari simulasi workspace Asana perusahaan SaaS B2B digabung jadi 16.639 task dengan label keterlambatan asli &mdash; dihitung dari selisih <span class="mono">completed_at</span> vs <span class="mono">due_date</span> sungguhan, bukan skor risiko buatan. Model yang dilatih tampil impresif: akurasi 94,7%, ROC-AUC 0,968.</p>
+
+        <figure>
+          <img src="exhibit_c.png" alt="Bar chart kepentingan fitur global model Asana, durasi_rencana_hari mendominasi jauh di atas 11 fitur lainnya">
+          <figcaption>Skala sumbu x saja sudah bicara: <span class="mono">durasi_rencana_hari</span> (0,1235) berjarak puluhan kali lipat dari fitur kedua tertinggi.</figcaption>
+        </figure>
+
+        <p>Tapi begitu SHAP dibuka, ceritanya berubah. Dari 12 fitur yang tersedia &mdash; termasuk beban kerja assignee yang dihitung dari task lain yang aktif bersamaan, jumlah komentar, status prioritas, jenis tag &mdash; hanya satu yang benar-benar bicara: <span class="mono">durasi_rencana_hari</span>. Sebelas lainnya menyumbang kontribusi SHAP di bawah 0,002, nyaris tak terlihat di skala yang sama.</p>
+
+        <div class="stamp-row">
+          <span class="stamp tie">1 Saksi Kredibel dari 12</span>
+          <span class="stamp-note">Akurat, tapi bukan karena alasan yang beragam.</span>
+        </div>
+        <div class="verdict flagged">
+          <div class="who">Catatan penyidik</div>
+          <p>Model ini tidak salah &mdash; ia jujur. Ia mengungkap bahwa pada data ini, keterlambatan nyaris sepenuhnya ditentukan oleh sisa waktu antara task dibuat dan tenggatnya, bukan oleh siapa yang mengerjakan, seberapa ramai didiskusikan, atau seberapa sibuk assignee-nya. Tanpa SHAP, seorang manajer bisa saja menyimpulkan &ldquo;tim yang overload lebih sering telat&rdquo; dari model 94,7% akurat ini &mdash; sebuah kesimpulan yang datanya sendiri tidak dukung.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <div class="lede">Kesimpulan Investigasi</div>
+    <h2>Tiga Berkas, Tiga Pelajaran</h2>
+    <div class="findings">
+      <div class="finding">
+        <span class="no"></span>
+        <div>
+          <h3>Berurutan bukan berarti time series</h3>
+          <p>Struktur temporal &mdash; tren, musiman, autokorelasi &mdash; harus <strong>diverifikasi</strong> (ADF, ACF, dekomposisi), bukan diasumsikan dari urutan tanggal. Desharnais membuktikan: mengurutkan 77 proyek independen berdasarkan tahun tidak menciptakan sinyal apa pun untuk ARIMA pelajari.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="no"></span>
+        <div>
+          <h3>Time series asli tak menjamin forecast mudah</h3>
+          <p>Eclipse Platform punya tren dan musiman yang terbukti nyata &mdash; tapi begitu horizon uji melampaui rentang yang pernah terekam, Random Forest maupun SARIMA sama-sama goyah. Struktur yang sah adalah syarat perlu, bukan syarat cukup.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="no"></span>
+        <div>
+          <h3>&ldquo;Kelihatannya penting&rdquo; bukan bukti penting</h3>
+          <p>16.639 task Asana dengan belasan fitur kontekstual mengungkap: model yang akurat bisa saja hanya mengandalkan satu faktor. Tanpa SHAP, sebelas faktor lain yang tak berkontribusi bisa dengan mudah disalahartikan sebagai pendorong keputusan.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="closing-line">Explainable AI bukan fitur tambahan di atas model yang sudah akurat &mdash; ia adalah alat interogasi yang menentukan apakah akurasi itu, dan asumsi di baliknya, benar-benar layak dipercaya.</p>
+  </section>
+
+  <footer>
+    Berkas ini merangkum kerja pada repo <code>PrediksiProyek</code>: dashboard Streamlit (<code>app.py</code>, profil Sintetis &amp; Asana) dan tiga studi pembanding di <code>analysis/</code>.
+    <ul>
+      <li><code>analysis/desharnais/</code> &mdash; Exhibit A, sumber: PROMISE Software Engineering Repository</li>
+      <li><code>analysis/eclipse_bug_timeseries/</code> &mdash; Exhibit B, sumber: MSR 2013 Defect Dataset (Ohira et al.)</li>
+      <li><code>src/asana_data.py</code>, <code>data/asana_raw/</code> &mdash; Exhibit C, sumber: simulasi workspace Asana</li>
+    </ul>
+    Desharnais dan Eclipse adalah data riset publik yang nyata; data Sintetis dan Asana tetap simulasi &mdash; keduanya ditandai jelas di dashboard.
+  </footer>
+
+</div>
+</body>
+</html>
