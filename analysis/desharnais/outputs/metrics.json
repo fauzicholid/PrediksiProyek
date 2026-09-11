@@ -1,0 +1,35 @@
+{
+  "n_train": 61,
+  "n_test": 16,
+  "random_forest": {
+    "MAE": 2115.8,
+    "RMSE": 3323.07,
+    "MAPE (%)": 87.71,
+    "R2": 0.2802
+  },
+  "arima": {
+    "MAE": 4012.66,
+    "RMSE": 4400.07,
+    "MAPE (%)": 216.96,
+    "R2": -0.262,
+    "order": [
+      0,
+      2,
+      2
+    ],
+    "aic": 1170.42
+  },
+  "feature_importance_random_forest": {
+    "PointsAjust": 0.3138,
+    "Length": 0.2026,
+    "Transactions": 0.1775,
+    "PointsNonAdjust": 0.1212,
+    "Entities": 0.0648,
+    "Adjustment": 0.0627,
+    "Language_3": 0.022,
+    "ManagerExp": 0.0125,
+    "TeamExp": 0.0103,
+    "Language_2": 0.0079,
+    "Language_1": 0.0045
+  }
+}
