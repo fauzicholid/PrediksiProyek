@@ -1,0 +1,49 @@
+{
+  "accuracy": 0.7467,
+  "precision": 0.7582,
+  "recall": 0.7484,
+  "f1_score": 0.7532,
+  "roc_auc": 0.8051,
+  "confusion_matrix": [
+    [
+      108,
+      37
+    ],
+    [
+      39,
+      116
+    ]
+  ],
+  "n_train": 1200,
+  "n_test": 300,
+  "feature_columns": [
+    "ukuran_tim",
+    "durasi_rencana_hari",
+    "anggaran_juta",
+    "kompleksitas",
+    "pengalaman_tim_tahun",
+    "perubahan_requirement",
+    "keterlibatan_klien",
+    "risiko_teknologi",
+    "jumlah_stakeholder",
+    "turnover_tim_persen",
+    "ketersediaan_sumber_daya",
+    "metodologi"
+  ],
+  "transformed_feature_names": [
+    "ukuran_tim",
+    "durasi_rencana_hari",
+    "anggaran_juta",
+    "kompleksitas",
+    "pengalaman_tim_tahun",
+    "perubahan_requirement",
+    "keterlibatan_klien",
+    "risiko_teknologi",
+    "jumlah_stakeholder",
+    "turnover_tim_persen",
+    "ketersediaan_sumber_daya",
+    "metodologi_Agile",
+    "metodologi_Hybrid",
+    "metodologi_Waterfall"
+  ]
+}
