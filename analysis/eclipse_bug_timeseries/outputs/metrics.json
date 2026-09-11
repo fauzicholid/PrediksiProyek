@@ -1,0 +1,51 @@
+{
+  "n_bulan_total": 64,
+  "n_train": 52,
+  "n_test": 12,
+  "adf_test": [
+    {
+      "label": "level (belum di-diff)",
+      "adf_stat": -1.285,
+      "p_value": 0.636,
+      "stationary": false
+    },
+    {
+      "label": "differencing orde-1",
+      "adf_stat": -6.425,
+      "p_value": 0.0,
+      "stationary": true
+    }
+  ],
+  "random_forest_lag": {
+    "MAE": 51.67,
+    "RMSE": 59.3,
+    "MAPE (%)": 37.52,
+    "R2": -1.1181
+  },
+  "sarima": {
+    "MAE": 64.32,
+    "RMSE": 74.73,
+    "MAPE (%)": 40.93,
+    "R2": -2.3638,
+    "order": [
+      2,
+      1,
+      1
+    ],
+    "seasonal_order": [
+      1,
+      1,
+      0,
+      12
+    ],
+    "aic": 284.17
+  },
+  "feature_importance_random_forest": {
+    "lag_12": 0.5605,
+    "bulan_ke": 0.2278,
+    "lag_1": 0.1221,
+    "lag_2": 0.0381,
+    "lag_3": 0.0268,
+    "bulan_kalender": 0.0247
+  }
+}
