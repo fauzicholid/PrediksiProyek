@@ -1,0 +1,33 @@
+{
+  "accuracy": 0.9465,
+  "precision": 0.8598,
+  "recall": 0.7222,
+  "f1_score": 0.785,
+  "roc_auc": 0.9677,
+  "confusion_matrix": [
+    [
+      2825,
+      53
+    ],
+    [
+      125,
+      325
+    ]
+  ],
+  "n_train": 13311,
+  "n_test": 3328,
+  "feature_columns": [
+    "durasi_rencana_hari",
+    "panjang_deskripsi_kata",
+    "jumlah_tag",
+    "prioritas_tinggi",
+    "adalah_bug",
+    "sedang_blocked",
+    "jumlah_komentar",
+    "beban_kerja_assignee",
+    "bulan_dibuat",
+    "tim",
+    "peran_assignee",
+    "status_proyek"
+  ]
+}

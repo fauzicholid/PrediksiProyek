@@ -223,6 +223,35 @@ def feature_distribution(df: pd.DataFrame, feature: str, target_col: str) -> go.
 
 def category_share_pie(df: pd.DataFrame, category_col: str) -> go.Figure:
     counts = df[category_col].value_counts()
+
+    # Pie hanya terbaca sampai ~8 kategori (batas palet kategorikal yang
+    # tervalidasi) - untuk kategori lebih banyak, bar horizontal top-N +
+    # "Lainnya" jauh lebih terbaca daripada pie dengan puluhan irisan tipis.
+    max_pie_slices = 8
+    if len(counts) > max_pie_slices:
+        top = counts.iloc[: max_pie_slices - 1]
+        other_total = counts.iloc[max_pie_slices - 1 :].sum()
+        ordered = pd.concat([top, pd.Series({"Lainnya": other_total})]).sort_values()
+        fig = go.Figure(
+            go.Bar(
+                x=ordered.values,
+                y=ordered.index,
+                orientation="h",
+                marker_color=BLUE,
+                text=ordered.values,
+                textposition="outside",
+            )
+        )
+        _apply_base_layout(
+            fig,
+            title=f"Distribusi {category_col} (top {max_pie_slices - 1} + Lainnya)",
+            xaxis=dict(title="Jumlah", gridcolor=GRIDLINE, zeroline=False, range=[0, ordered.max() * 1.2]),
+            yaxis=dict(title=None, automargin=True),
+            showlegend=False,
+            height=max(360, 28 * len(ordered)),
+        )
+        return fig
+
     colors = (CATEGORICAL_ORDER * (len(counts) // len(CATEGORICAL_ORDER) + 1))[: len(counts)]
     fig = go.Figure(
         go.Pie(

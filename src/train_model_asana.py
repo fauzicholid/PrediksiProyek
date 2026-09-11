@@ -1,9 +1,6 @@
 """
-Melatih model klasifikasi untuk memprediksi keterlambatan proyek IT
-menggunakan dataset **sintetis** (lihat `src/data_generator.py`).
-
-Model: RandomForestClassifier (dipilih karena kompatibel langsung dengan
-shap.TreeExplainer sehingga perhitungan nilai SHAP cepat dan eksak).
+Melatih model klasifikasi keterlambatan task menggunakan dataset Asana
+(task-level, lihat `src/asana_data.py`).
 """
 
 from __future__ import annotations
@@ -11,22 +8,22 @@ from __future__ import annotations
 import json
 import os
 
-from src.data_generator import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, TARGET_COLUMN, save_dataset
+import pandas as pd
+
+from src.asana_data import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, OUTPUT_PATH, TARGET_COLUMN, build_features
 from src.model_utils import train_and_save
 
-DATA_PATH = "data/proyek_it.csv"
-MODEL_PATH = "models/model_keterlambatan.pkl"
-METRICS_PATH = "models/metrics.json"
-DATA_TEST_OUT_PATH = "data/data_uji.csv"
+DATA_PATH = OUTPUT_PATH
+MODEL_PATH = "models/model_keterlambatan_asana.pkl"
+METRICS_PATH = "models/metrics_asana.json"
+DATA_TEST_OUT_PATH = "data/data_uji_asana.csv"
 
 
 def main() -> None:
     os.makedirs("data", exist_ok=True)
 
     if not os.path.exists(DATA_PATH):
-        save_dataset(DATA_PATH)
-
-    import pandas as pd
+        build_features().to_csv(DATA_PATH, index=False)
 
     df = pd.read_csv(DATA_PATH)
     metrics = train_and_save(

@@ -6,6 +6,14 @@ Modul ini membungkus shap.TreeExplainer agar dapat dipakai langsung di atas
 sklearn Pipeline (ColumnTransformer + RandomForestClassifier), dan menangani
 perbedaan bentuk output antar versi pustaka `shap` (array 2D vs 3D, dengan
 atau tanpa dimensi kelas).
+
+Modul ini sengaja dibuat **tidak terikat pada satu dataset**: nama kolom
+numerik & kategorikal diambil langsung dari `ColumnTransformer` yang sudah
+di-fit di dalam pipeline (bukan di-import dari modul dataset tertentu),
+sehingga bisa dipakai untuk profil dataset manapun (data sintetis, data
+Asana, atau dataset lain di masa depan) selama pipeline-nya mengikuti pola
+`Pipeline([("preprocessor", ColumnTransformer([("num", "passthrough", ...),
+("cat", OneHotEncoder(), ...)])), ("model", ...)])`.
 """
 
 from __future__ import annotations
@@ -16,8 +24,6 @@ import numpy as np
 import pandas as pd
 import shap
 from sklearn.pipeline import Pipeline
-
-from src.data_generator import CATEGORICAL_COLUMNS, FEATURE_COLUMNS
 
 
 @dataclass
@@ -39,11 +45,18 @@ def transform_features(pipeline: Pipeline, X: pd.DataFrame) -> np.ndarray:
 
 
 def get_feature_names(pipeline: Pipeline) -> list[str]:
+    """Ambil nama fitur hasil transformasi langsung dari ColumnTransformer
+    yang sudah di-fit, tanpa bergantung pada konstanta dataset eksternal."""
     preprocessor = pipeline.named_steps["preprocessor"]
-    numeric_columns = [c for c in FEATURE_COLUMNS if c not in CATEGORICAL_COLUMNS]
-    cat_encoder = preprocessor.named_transformers_["cat"]
-    cat_names = list(cat_encoder.get_feature_names_out(CATEGORICAL_COLUMNS))
-    return numeric_columns + cat_names
+    names: list[str] = []
+    for trans_name, transformer, columns in preprocessor.transformers_:
+        if trans_name == "remainder":
+            continue
+        if hasattr(transformer, "get_feature_names_out"):
+            names.extend(transformer.get_feature_names_out(columns))
+        else:
+            names.extend(columns)
+    return names
 
 
 def build_tree_explainer(pipeline: Pipeline) -> shap.TreeExplainer:
@@ -108,23 +121,18 @@ def compute_shap_values(pipeline: Pipeline, X: pd.DataFrame) -> ShapResult:
     )
 
 
-def readable_feature_label(name: str) -> str:
-    """Ubah nama fitur teknis (hasil one-hot) menjadi label yang mudah dibaca."""
-    labels = {
-        "ukuran_tim": "Ukuran Tim",
-        "durasi_rencana_hari": "Durasi Rencana (hari)",
-        "anggaran_juta": "Anggaran (juta Rp)",
-        "kompleksitas": "Kompleksitas Proyek",
-        "pengalaman_tim_tahun": "Pengalaman Tim (tahun)",
-        "perubahan_requirement": "Jumlah Perubahan Requirement",
-        "keterlibatan_klien": "Keterlibatan Klien",
-        "risiko_teknologi": "Risiko Teknologi",
-        "jumlah_stakeholder": "Jumlah Stakeholder",
-        "turnover_tim_persen": "Turnover Tim (%)",
-        "ketersediaan_sumber_daya": "Ketersediaan Sumber Daya",
-    }
-    if name in labels:
-        return labels[name]
-    if name.startswith("metodologi_"):
-        return f"Metodologi = {name.split('metodologi_', 1)[1]}"
-    return name
+def readable_feature_label(name: str, label_map: dict[str, str] | None = None) -> str:
+    """Ubah nama fitur teknis (hasil one-hot, mis. `tim_Backend Engineering`)
+    menjadi label yang mudah dibaca, memakai `label_map` khusus dataset bila
+    tersedia (lihat `FEATURE_LABELS` pada masing-masing modul dataset)."""
+    label_map = label_map or {}
+    if name in label_map:
+        return label_map[name]
+    # Nama kolom one-hot berbentuk "<kolom_asli>_<nilai_kategori>" - cocokkan
+    # nama kolom asli terpanjang yang jadi prefix (agar kolom multi-kata
+    # seperti "status_proyek" tidak salah kepotong di underscore pertama).
+    for base in sorted(label_map, key=len, reverse=True):
+        if name.startswith(base + "_"):
+            suffix = name[len(base) + 1 :]
+            return f"{label_map[base]} = {suffix}"
+    return name.replace("_", " ").capitalize()

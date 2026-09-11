@@ -1,0 +1,33 @@
+id,name,organization_id
+e8820255-60bf-490b-80d2-65240a9a7286,Backend Engineering,1f3d6666-a183-4754-9cff-fc230809983c
+80cdd123-7cb1-4275-b158-fcd52d5e8aa2,Frontend Engineering,1f3d6666-a183-4754-9cff-fc230809983c
+b65de153-ae71-4a44-b822-7f207a017835,DevOps,1f3d6666-a183-4754-9cff-fc230809983c
+fcd2cdf7-89df-4aa0-a764-22fdc1c0909a,Product Management,76b2c7e4-798b-4403-8181-fbad72f4610f
+d12da388-6025-422a-a216-4dec64b896ff,Data Science,76b2c7e4-798b-4403-8181-fbad72f4610f
+e6f7502a-5693-435f-87fa-0f633d0dc69d,Mobile Development,76b2c7e4-798b-4403-8181-fbad72f4610f
+27017acb-6187-4878-8979-a8744b92f2be,Platform Engineering,ef934e7b-4215-4f6d-93e3-5407a8425380
+6625de60-4fc4-4255-b9f2-cc285b025bb7,Security,ef934e7b-4215-4f6d-93e3-5407a8425380
+e36855cf-a8d3-47ff-9e45-e8b975d44cf2,QA Engineering,ef934e7b-4215-4f6d-93e3-5407a8425380
+f8a3453a-dcd0-4ef5-aa39-068650aae703,Infrastructure,8b59b103-5cff-45a8-b7a6-21f132f3e204
+9bd2429d-97a1-448c-9708-26c06d13cd01,Machine Learning,8b59b103-5cff-45a8-b7a6-21f132f3e204
+f9080448-9b10-4271-827a-1d19f0859c30,Customer Success,8b59b103-5cff-45a8-b7a6-21f132f3e204
+team-0,Team 0,org-1
+team-1,Team 1,org-1
+team-2,Team 2,org-1
+team-3,Team 3,org-1
+team-4,Team 4,org-1
+team-5,Team 5,org-1
+team-6,Team 6,org-1
+team-7,Team 7,org-1
+team-8,Team 8,org-1
+team-9,Team 9,org-1
+team-10,Team 10,org-1
+team-11,Team 11,org-1
+team-12,Team 12,org-1
+team-13,Team 13,org-1
+team-14,Team 14,org-1
+team-15,Team 15,org-1
+team-16,Team 16,org-1
+team-17,Team 17,org-1
+team-18,Team 18,org-1
+team-19,Team 19,org-1

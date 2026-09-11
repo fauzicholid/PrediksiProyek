@@ -5,13 +5,20 @@ Explainable AI (XAI) Menggunakan SHAP.
 Tujuan dashboard ini adalah mendukung transparansi keputusan manajer
 proyek: selain memberikan prediksi probabilitas keterlambatan, dashboard
 menjelaskan *mengapa* model memberikan prediksi tersebut melalui nilai
-SHAP (SHapley Additive exPlanations), baik secara lokal (per proyek)
+SHAP (SHapley Additive exPlanations), baik secara lokal (per proyek/task)
 maupun global (pola umum pada seluruh data).
+
+Dashboard mendukung lebih dari satu **sumber data** (lihat
+`src/profiles.py`) - saat ini data sintetis (demo) dan data task Asana
+(simulasi enterprise) - dipilih lewat sidebar. Seluruh halaman di bawah
+ditulis generik terhadap profil yang aktif, bukan hardcode ke satu
+skema fitur.
 """
 
 from __future__ import annotations
 
 import json
+import os
 
 import joblib
 import matplotlib.pyplot as plt
@@ -28,14 +35,8 @@ from src.charts import (
     local_shap_bar,
     probability_bar,
 )
-from src.data_generator import (
-    CATEGORICAL_COLUMNS,
-    FEATURE_COLUMNS,
-    METODOLOGI_OPTIONS,
-    TARGET_COLUMN,
-)
 from src.explainer import compute_shap_values, readable_feature_label
-from src.train_model import DATA_PATH, METRICS_PATH, MODEL_PATH, main as train_main
+from src.profiles import PROFILES, DatasetProfile, FieldSpec
 
 st.set_page_config(
     page_title="Prediksi Keterlambatan Proyek IT (XAI - SHAP)",
@@ -45,33 +46,38 @@ st.set_page_config(
 
 
 # ---------------------------------------------------------------------------
-# Pemuatan aset (model, data, metrik) - di-cache agar dashboard responsif
+# Pemuatan aset (model, data, metrik) - di-cache per profil agar responsif
 # ---------------------------------------------------------------------------
+def _ensure_trained(profile: DatasetProfile) -> None:
+    if os.path.exists(profile.model_path) and os.path.exists(profile.data_path):
+        return
+    if profile.key == "sintetis":
+        from src.train_model import main as train_main
+    else:
+        from src.train_model_asana import main as train_main
+    train_main()
+
+
 @st.cache_resource(show_spinner="Menyiapkan model & data...")
-def load_assets():
-    import os
+def load_assets(profile_key: str):
+    profile = PROFILES[profile_key]
+    _ensure_trained(profile)
 
-    if not (os.path.exists(MODEL_PATH) and os.path.exists(DATA_PATH)):
-        train_main()
-
-    pipeline = joblib.load(MODEL_PATH)
-    df = pd.read_csv(DATA_PATH)
-    with open(METRICS_PATH, encoding="utf-8") as f:
+    pipeline = joblib.load(profile.model_path)
+    df = pd.read_csv(profile.data_path)
+    with open(profile.metrics_path, encoding="utf-8") as f:
         metrics = json.load(f)
     return pipeline, df, metrics
 
 
 @st.cache_resource(show_spinner="Menghitung nilai SHAP global...")
-def compute_global_shap(_pipeline, df: pd.DataFrame, sample_size: int = 400):
+def compute_global_shap(_pipeline, profile_key: str, df: pd.DataFrame, sample_size: int = 400):
+    profile = PROFILES[profile_key]
     sample = df.sample(n=min(sample_size, len(df)), random_state=7)
-    X_sample = sample[FEATURE_COLUMNS]
+    X_sample = sample[profile.feature_columns]
     result = compute_shap_values(_pipeline, X_sample)
     return result, X_sample.reset_index(drop=True)
 
-
-pipeline, dataset, metrics = load_assets()
-shap_global, shap_sample_X = compute_global_shap(pipeline, dataset)
-readable_labels = [readable_feature_label(name) for name in shap_global.feature_names]
 
 RISK_LABELS = {
     "low": ("Risiko Rendah", "🟢"),
@@ -88,15 +94,45 @@ def risk_category(probability: float) -> tuple[str, str]:
     return RISK_LABELS["high"]
 
 
+def render_field(field_spec: FieldSpec):
+    """Render satu widget input Streamlit sesuai FieldSpec, kembalikan nilainya."""
+    if field_spec.kind == "slider_int":
+        return st.slider(field_spec.label, int(field_spec.min), int(field_spec.max), int(field_spec.default))
+    if field_spec.kind == "slider_float":
+        return st.slider(
+            field_spec.label, float(field_spec.min), float(field_spec.max),
+            float(field_spec.default), step=float(field_spec.step or 1.0),
+        )
+    if field_spec.kind == "number":
+        return st.number_input(
+            field_spec.label, min_value=float(field_spec.min),
+            value=float(field_spec.default), step=float(field_spec.step or 1.0),
+        )
+    if field_spec.kind == "select":
+        default_idx = field_spec.options.index(field_spec.default) if field_spec.default in field_spec.options else 0
+        return st.selectbox(field_spec.label, field_spec.options, index=default_idx)
+    if field_spec.kind == "checkbox":
+        return int(st.checkbox(field_spec.label, value=bool(field_spec.default)))
+    raise ValueError(f"Jenis field tidak dikenal: {field_spec.kind}")
+
+
 # ---------------------------------------------------------------------------
-# Sidebar navigasi
+# Sidebar: pilih sumber data & navigasi
 # ---------------------------------------------------------------------------
 st.sidebar.title("📊 Navigasi Dashboard")
+
+profile_key = st.sidebar.selectbox(
+    "🗂️ Sumber Data",
+    list(PROFILES.keys()),
+    format_func=lambda k: PROFILES[k].display_name,
+)
+profile = PROFILES[profile_key]
+
 page = st.sidebar.radio(
     "Pilih halaman",
     [
         "🏠 Beranda",
-        "🔮 Prediksi Proyek Baru",
+        f"🔮 Prediksi {profile.unit_label.capitalize()} Baru",
         "🧠 Analisis Global (XAI)",
         "📈 Evaluasi Model",
         "🔍 Eksplorasi Data",
@@ -105,11 +141,17 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
+st.sidebar.caption(profile.caveat)
+st.sidebar.markdown("---")
 st.sidebar.caption(
     "Dashboard ini dibangun untuk mendukung **transparansi keputusan** "
     "manajer proyek IT melalui pendekatan *Explainable AI* (SHAP) di atas "
     "model klasifikasi Random Forest."
 )
+
+pipeline, dataset, metrics = load_assets(profile_key)
+shap_global, shap_sample_X = compute_global_shap(pipeline, profile_key, dataset)
+readable_labels = [readable_feature_label(name, profile.feature_labels) for name in shap_global.feature_names]
 
 
 # ---------------------------------------------------------------------------
@@ -122,21 +164,24 @@ if page == "🏠 Beranda":
     st.markdown(
         """
         Dashboard ini membantu **manajer proyek IT** memperkirakan risiko
-        keterlambatan sebuah proyek, sekaligus memahami **faktor-faktor apa
-        saja yang mendorong prediksi tersebut** — bukan sekadar angka
-        probabilitas dari "kotak hitam". Transparansi ini dicapai dengan
-        menghitung nilai **SHAP (SHapley Additive exPlanations)** dari model
-        Random Forest yang dilatih pada data historis proyek.
+        keterlambatan, sekaligus memahami **faktor-faktor apa saja yang
+        mendorong prediksi tersebut** — bukan sekadar angka probabilitas
+        dari "kotak hitam". Transparansi ini dicapai dengan menghitung
+        nilai **SHAP (SHapley Additive exPlanations)** dari model Random
+        Forest yang dilatih pada data historis.
         """
     )
 
+    st.info(f"**Sumber data aktif:** {profile.display_name}\n\n{profile.description}")
+    st.warning(profile.caveat)
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Jumlah Data Proyek", f"{len(dataset):,}")
+    col1.metric(f"Jumlah Data {profile.unit_label.capitalize()}", f"{len(dataset):,}")
     col2.metric("Akurasi Model", f"{metrics['accuracy'] * 100:.1f}%")
     col3.metric("ROC-AUC", f"{metrics['roc_auc']:.3f}")
     col4.metric(
-        "Proporsi Proyek Terlambat",
-        f"{dataset[TARGET_COLUMN].mean() * 100:.1f}%",
+        f"Proporsi {profile.unit_label.capitalize()} Terlambat",
+        f"{dataset[profile.target_column].mean() * 100:.1f}%",
     )
 
     st.markdown("---")
@@ -144,19 +189,22 @@ if page == "🏠 Beranda":
     with left:
         st.markdown("#### Bagaimana cara memakai dashboard ini?")
         st.markdown(
-            """
-            1. **🔮 Prediksi Proyek Baru** — masukkan karakteristik proyek
-               (ukuran tim, anggaran, kompleksitas, dsb.) untuk melihat
-               probabilitas keterlambatan beserta penjelasan SHAP per proyek.
+            f"""
+            1. **🔮 Prediksi {profile.unit_label.capitalize()} Baru** — masukkan
+               karakteristik untuk melihat probabilitas keterlambatan beserta
+               penjelasan SHAP.
             2. **🧠 Analisis Global (XAI)** — lihat pola umum: fitur apa yang
-               paling memengaruhi keterlambatan proyek pada seluruh dataset.
+               paling memengaruhi keterlambatan pada seluruh dataset.
             3. **📈 Evaluasi Model** — tinjau performa model (akurasi,
                precision, recall, confusion matrix) sebelum dipakai sebagai
                dasar keputusan.
             4. **🔍 Eksplorasi Data** — telusuri karakteristik data historis
                yang menjadi dasar pelatihan model.
-            5. **📁 Prediksi Batch (CSV)** — unggah beberapa proyek sekaligus
+            5. **📁 Prediksi Batch (CSV)** — unggah beberapa data sekaligus
                untuk diprediksi secara massal.
+
+            Ganti **Sumber Data** di sidebar untuk membandingkan bagaimana
+            model & penjelasan SHAP berubah antar dataset.
             """
         )
     with right:
@@ -166,58 +214,32 @@ if page == "🏠 Beranda":
             "dipercaya untuk pengambilan keputusan manajerial. Dengan SHAP, "
             "setiap prediksi dapat diuraikan menjadi kontribusi tiap faktor, "
             "sehingga manajer proyek dapat memvalidasi apakah alasan model "
-            "masuk akal dan menentukan tindakan mitigasi yang tepat sasaran."
+            "masuk akal dan menentukan tindakan mitigasi yang tepat sasaran — "
+            "termasuk saat jawabannya adalah faktor yang diduga penting "
+            "ternyata tidak berpengaruh (lihat sumber data Asana)."
         )
 
 
 # ---------------------------------------------------------------------------
-# Halaman: Prediksi Proyek Baru
+# Halaman: Prediksi Baru
 # ---------------------------------------------------------------------------
-elif page == "🔮 Prediksi Proyek Baru":
-    st.title("🔮 Prediksi Keterlambatan Proyek Baru")
-    st.caption("Masukkan karakteristik proyek untuk memprediksi risiko keterlambatan.")
+elif page.startswith("🔮 Prediksi"):
+    st.title(f"🔮 Prediksi Keterlambatan {profile.unit_label.capitalize()} Baru")
+    st.caption(f"Masukkan karakteristik {profile.unit_label} untuk memprediksi risiko keterlambatan.")
 
     with st.form("form_prediksi"):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            ukuran_tim = st.slider("Ukuran Tim (orang)", 3, 40, 10)
-            durasi_rencana_hari = st.slider("Durasi Rencana (hari)", 30, 365, 120)
-            anggaran_juta = st.number_input("Anggaran (juta Rp)", min_value=50.0, value=500.0, step=10.0)
-            kompleksitas = st.slider("Kompleksitas Proyek (1=Rendah, 5=Sangat Tinggi)", 1, 5, 3)
-        with c2:
-            pengalaman_tim_tahun = st.slider("Rata-rata Pengalaman Tim (tahun)", 0.0, 15.0, 3.0, step=0.5)
-            perubahan_requirement = st.slider("Jumlah Perubahan Requirement", 0, 20, 4)
-            keterlibatan_klien = st.slider("Keterlibatan Klien (1=Rendah, 5=Sangat Aktif)", 1, 5, 3)
-            risiko_teknologi = st.slider("Risiko Teknologi (1=Rendah, 5=Sangat Tinggi)", 1, 5, 3)
-        with c3:
-            jumlah_stakeholder = st.slider("Jumlah Stakeholder", 2, 20, 6)
-            turnover_tim_persen = st.slider("Turnover Tim (%)", 0.0, 60.0, 10.0, step=1.0)
-            ketersediaan_sumber_daya = st.slider("Ketersediaan Sumber Daya (1=Rendah, 5=Sangat Baik)", 1, 5, 3)
-            metodologi = st.selectbox("Metodologi Pengembangan", METODOLOGI_OPTIONS, index=1)
+        cols = st.columns(3)
+        values = {}
+        for i, field_spec in enumerate(profile.fields):
+            with cols[i % 3]:
+                values[field_spec.name] = render_field(field_spec)
 
         submitted = st.form_submit_button("Prediksi Sekarang", use_container_width=True)
 
     if submitted:
-        input_df = pd.DataFrame(
-            [
-                {
-                    "ukuran_tim": ukuran_tim,
-                    "durasi_rencana_hari": durasi_rencana_hari,
-                    "anggaran_juta": anggaran_juta,
-                    "kompleksitas": kompleksitas,
-                    "pengalaman_tim_tahun": pengalaman_tim_tahun,
-                    "perubahan_requirement": perubahan_requirement,
-                    "keterlibatan_klien": keterlibatan_klien,
-                    "risiko_teknologi": risiko_teknologi,
-                    "jumlah_stakeholder": jumlah_stakeholder,
-                    "turnover_tim_persen": turnover_tim_persen,
-                    "ketersediaan_sumber_daya": ketersediaan_sumber_daya,
-                    "metodologi": metodologi,
-                }
-            ]
-        )
+        input_df = pd.DataFrame([values])
 
-        probability = float(pipeline.predict_proba(input_df[FEATURE_COLUMNS])[0, 1])
+        probability = float(pipeline.predict_proba(input_df[profile.feature_columns])[0, 1])
         label, emoji = risk_category(probability)
 
         st.markdown("### Hasil Prediksi")
@@ -231,8 +253,8 @@ elif page == "🔮 Prediksi Proyek Baru":
         st.markdown("---")
         st.markdown("### 🧠 Penjelasan SHAP (Mengapa model memberi prediksi ini?)")
 
-        local_result = compute_shap_values(pipeline, input_df[FEATURE_COLUMNS])
-        local_labels = [readable_feature_label(name) for name in local_result.feature_names]
+        local_result = compute_shap_values(pipeline, input_df[profile.feature_columns])
+        local_labels = [readable_feature_label(name, profile.feature_labels) for name in local_result.feature_names]
         local_feature_values = list(local_result.transformed_data.iloc[0])
 
         st.plotly_chart(
@@ -245,7 +267,7 @@ elif page == "🔮 Prediksi Proyek Baru":
         narasi = []
         for idx in order:
             arah = "**meningkatkan**" if local_result.values[0][idx] > 0 else "**menurunkan**"
-            narasi.append(f"- {local_labels[idx]} {arah} risiko keterlambatan proyek ini.")
+            narasi.append(f"- {local_labels[idx]} {arah} risiko keterlambatan {profile.unit_label} ini.")
         st.markdown("**Ringkasan faktor paling berpengaruh:**\n" + "\n".join(narasi))
 
         with st.expander("Lihat SHAP Waterfall Plot (format standar SHAP)"):
@@ -264,10 +286,10 @@ elif page == "🔮 Prediksi Proyek Baru":
 # Halaman: Analisis Global (XAI)
 # ---------------------------------------------------------------------------
 elif page == "🧠 Analisis Global (XAI)":
-    st.title("🧠 Analisis Global: Faktor Utama Keterlambatan Proyek")
+    st.title(f"🧠 Analisis Global: Faktor Utama Keterlambatan {profile.unit_label.capitalize()}")
     st.caption(
-        f"Dihitung dari nilai SHAP pada {len(shap_sample_X)} sampel proyek "
-        "untuk melihat pola keseluruhan (bukan hanya satu proyek)."
+        f"Dihitung dari nilai SHAP pada {len(shap_sample_X)} sampel {profile.unit_label} "
+        "untuk melihat pola keseluruhan (bukan hanya satu data)."
     )
 
     mean_abs_shap = np.abs(shap_global.values).mean(axis=0)
@@ -291,7 +313,7 @@ elif page == "🧠 Analisis Global (XAI)":
         shap.plots.beeswarm(explanation, max_display=14, show=False)
         st.pyplot(fig, clear_figure=True)
         st.caption(
-            "Setiap titik mewakili satu proyek. Warna merah = nilai fitur "
+            "Setiap titik mewakili satu data. Warna merah = nilai fitur "
             "tinggi, biru = nilai fitur rendah. Posisi ke kanan berarti "
             "fitur tersebut mendorong probabilitas keterlambatan naik."
         )
@@ -321,39 +343,35 @@ elif page == "📈 Evaluasi Model":
 
     st.markdown(
         """
-        **Cara membaca confusion matrix:** baris menunjukkan kondisi aktual
-        proyek, kolom menunjukkan hasil prediksi model. Sel diagonal
-        (kiri-atas dan kanan-bawah) adalah prediksi yang benar.
+        **Cara membaca confusion matrix:** baris menunjukkan kondisi aktual,
+        kolom menunjukkan hasil prediksi model. Sel diagonal (kiri-atas dan
+        kanan-bawah) adalah prediksi yang benar.
         """
     )
 
-    st.warning(
-        "⚠️ Model ini dilatih pada **data sintetis** yang disusun berdasarkan "
-        "pola umum manajemen proyek untuk keperluan demonstrasi. Sebelum "
-        "dipakai pada pengambilan keputusan nyata, latih ulang model "
-        "menggunakan data historis proyek IT organisasi Anda sendiri "
-        "(lihat `src/train_model.py`)."
-    )
+    st.warning(profile.caveat)
 
 
 # ---------------------------------------------------------------------------
 # Halaman: Eksplorasi Data
 # ---------------------------------------------------------------------------
 elif page == "🔍 Eksplorasi Data":
-    st.title("🔍 Eksplorasi Data Historis Proyek")
+    st.title("🔍 Eksplorasi Data Historis")
 
     st.dataframe(dataset.head(20), use_container_width=True)
 
-    numeric_features = [c for c in FEATURE_COLUMNS if c not in CATEGORICAL_COLUMNS]
+    numeric_features = [c for c in profile.feature_columns if c not in profile.categorical_columns]
     col_a, col_b = st.columns([2, 1])
     with col_a:
         selected_feature = st.selectbox("Pilih fitur numerik untuk dilihat distribusinya", numeric_features)
         st.plotly_chart(
-            feature_distribution(dataset, selected_feature, TARGET_COLUMN),
+            feature_distribution(dataset, selected_feature, profile.target_column),
             use_container_width=True,
         )
     with col_b:
-        st.plotly_chart(category_share_pie(dataset, "metodologi"), use_container_width=True)
+        if profile.categorical_columns:
+            cat_choice = st.selectbox("Pilih fitur kategorikal", profile.categorical_columns)
+            st.plotly_chart(category_share_pie(dataset, cat_choice), use_container_width=True)
 
     st.markdown("#### Ringkasan Statistik")
     st.dataframe(dataset[numeric_features].describe().T, use_container_width=True)
@@ -363,36 +381,36 @@ elif page == "🔍 Eksplorasi Data":
 # Halaman: Prediksi Batch (CSV)
 # ---------------------------------------------------------------------------
 elif page == "📁 Prediksi Batch (CSV)":
-    st.title("📁 Prediksi Batch untuk Beberapa Proyek Sekaligus")
+    st.title(f"📁 Prediksi Batch untuk Beberapa {profile.unit_label.capitalize()} Sekaligus")
     st.markdown(
         "Unggah file CSV berisi kolom berikut: `"
-        + "`, `".join(FEATURE_COLUMNS)
+        + "`, `".join(profile.feature_columns)
         + "`"
     )
 
-    template_csv = dataset[FEATURE_COLUMNS].head(5).to_csv(index=False)
+    template_csv = dataset[profile.feature_columns].head(5).to_csv(index=False)
     st.download_button(
         "⬇️ Unduh Contoh Template CSV",
         data=template_csv,
-        file_name="template_prediksi_proyek.csv",
+        file_name=f"template_prediksi_{profile.key}.csv",
         mime="text/csv",
     )
 
-    uploaded_file = st.file_uploader("Unggah file CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Unggah file CSV", type=["csv"], key=f"upload_{profile.key}")
     if uploaded_file is not None:
         try:
             batch_df = pd.read_csv(uploaded_file)
-            missing_cols = [c for c in FEATURE_COLUMNS if c not in batch_df.columns]
+            missing_cols = [c for c in profile.feature_columns if c not in batch_df.columns]
             if missing_cols:
                 st.error(f"Kolom berikut tidak ditemukan pada file: {missing_cols}")
             else:
-                X_batch = batch_df[FEATURE_COLUMNS]
+                X_batch = batch_df[profile.feature_columns]
                 probs = pipeline.predict_proba(X_batch)[:, 1]
                 batch_result = batch_df.copy()
                 batch_result["probabilitas_terlambat"] = probs.round(3)
                 batch_result["kategori_risiko"] = [risk_category(p)[0] for p in probs]
 
-                st.success(f"Berhasil memprediksi {len(batch_result)} proyek.")
+                st.success(f"Berhasil memprediksi {len(batch_result)} {profile.unit_label}.")
                 st.dataframe(batch_result, use_container_width=True)
 
                 st.download_button(
@@ -404,7 +422,7 @@ elif page == "📁 Prediksi Batch (CSV)":
 
                 st.markdown("#### Ringkasan Kepentingan Fitur untuk Batch Ini")
                 batch_shap = compute_shap_values(pipeline, X_batch)
-                batch_labels = [readable_feature_label(name) for name in batch_shap.feature_names]
+                batch_labels = [readable_feature_label(name, profile.feature_labels) for name in batch_shap.feature_names]
                 mean_abs = np.abs(batch_shap.values).mean(axis=0)
                 st.plotly_chart(
                     global_importance_bar(batch_labels, mean_abs),

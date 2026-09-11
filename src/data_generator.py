@@ -33,6 +33,21 @@ METODOLOGI_OPTIONS = ["Waterfall", "Agile", "Hybrid"]
 
 TARGET_COLUMN = "terlambat"
 
+FEATURE_LABELS = {
+    "ukuran_tim": "Ukuran Tim",
+    "durasi_rencana_hari": "Durasi Rencana (hari)",
+    "anggaran_juta": "Anggaran (juta Rp)",
+    "kompleksitas": "Kompleksitas Proyek",
+    "pengalaman_tim_tahun": "Pengalaman Tim (tahun)",
+    "perubahan_requirement": "Jumlah Perubahan Requirement",
+    "keterlibatan_klien": "Keterlibatan Klien",
+    "risiko_teknologi": "Risiko Teknologi",
+    "jumlah_stakeholder": "Jumlah Stakeholder",
+    "turnover_tim_persen": "Turnover Tim (%)",
+    "ketersediaan_sumber_daya": "Ketersediaan Sumber Daya",
+    "metodologi": "Metodologi",
+}
+
 
 def generate_dataset(n_samples: int = 1500, random_state: int = 42) -> pd.DataFrame:
     """Bangkitkan dataset sintetis proyek IT beserta label keterlambatan."""

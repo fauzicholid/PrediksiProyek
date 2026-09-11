@@ -29,21 +29,5 @@
     "turnover_tim_persen",
     "ketersediaan_sumber_daya",
     "metodologi"
-  ],
-  "transformed_feature_names": [
-    "ukuran_tim",
-    "durasi_rencana_hari",
-    "anggaran_juta",
-    "kompleksitas",
-    "pengalaman_tim_tahun",
-    "perubahan_requirement",
-    "keterlibatan_klien",
-    "risiko_teknologi",
-    "jumlah_stakeholder",
-    "turnover_tim_persen",
-    "ketersediaan_sumber_daya",
-    "metodologi_Agile",
-    "metodologi_Hybrid",
-    "metodologi_Waterfall"
   ]
 }
